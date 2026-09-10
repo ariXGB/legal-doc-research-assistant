@@ -1,4 +1,3 @@
-import numpy as np
 import faiss
 from app.embeddings import get_model
 

@@ -12,7 +12,6 @@ Rules you must follow strictly:
 4. When you state a fact, it must be traceable to the context given.
 5. You may explain legal terminology in simpler language, but clearly separate explanation from what the document actually states.
 6. You are not a lawyer and must not give legal advice or tell the user what they should do. You may only explain what the documents say.
-7. Always end your answer with this exact disclaimer on a new line: "This is an informational summary of the uploaded documents, not legal advice."
 """
 
 

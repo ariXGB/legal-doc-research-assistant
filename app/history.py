@@ -1,4 +1,4 @@
-MAX_HISTORY_TURNS = 5
+MAX_HISTORY_TURNS = 10
 
 def add_turn(history, question, answer):
     history.append({"question": question, "answer": answer})

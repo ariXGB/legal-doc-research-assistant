@@ -1,6 +1,7 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
+from datetime import datetime
 
 load_dotenv()
 
@@ -35,7 +36,7 @@ with st.sidebar:
             for uploaded_file in uploaded_files:
                 # Sanitize the client-supplied filename to prevent path traversal
                 # (e.g. "../../something") from escaping data/documents.
-                safe_name = os.path.basename(uploaded_file.name)
+                safe_name = os.path.basename(f"{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.pdf")
                 save_path = os.path.join("data/documents", safe_name)
                 with open(save_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())

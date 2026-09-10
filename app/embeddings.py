@@ -29,7 +29,7 @@ def build_index(chunks):
     embeddings = embed_chunks(chunks)
     dimension = embeddings.shape[1]
 
-    index = faiss.IndexFlatIP(dimension)   # inner product; we normalize vectors for cosine similarity
+    index = faiss.IndexFlatIP(dimension)  
     faiss.normalize_L2(embeddings)
     index.add(embeddings)
 
@@ -59,8 +59,6 @@ def add_documents(new_chunks, existing_index=None, existing_chunks=None):
 
     index.add(embeddings)
 
-    # Re-number chunk_id so ids stay unique/contiguous across the merged set,
-    # while keeping their position aligned with the FAISS index ordering.
     all_chunks = list(existing_chunks)
     next_id = (all_chunks[-1]["chunk_id"] + 1) if all_chunks else 0
     for chunk in new_chunks:
