@@ -1,3 +1,7 @@
 /test
 /vectorstore
 /data/documents
+__pycache__/
+*.vscode
+*.idea
+app/__pycache__/

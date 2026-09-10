@@ -1,6 +1,10 @@
-import requests
+import httpx
+from ollama import ResponseError
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "gemma4:31b-cloud"
 
 SYSTEM_PROMPT = """You are a legal document research assistant. You help users understand the content of legal documents they have uploaded.
@@ -15,6 +19,36 @@ Rules you must follow strictly:
 """
 
 
+_llm = None
+_chain = None
+
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatOllama(
+            model=MODEL_NAME,
+            base_url=OLLAMA_BASE_URL,
+            temperature=0,       # deterministic, grounded answers over creative ones
+            timeout=120,         # matches the original requests.post timeout
+        )
+    return _llm
+
+
+def get_chain():
+    """
+    Builds the LCEL pipeline: prompt -> model -> output parser.
+    """
+    global _chain
+    if _chain is None:
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", SYSTEM_PROMPT),
+            ("human", "{user_message}"),
+        ])
+        _chain = prompt | get_llm() | StrOutputParser()
+    return _chain
+
+
 def build_context_block(retrieved_chunks):
     blocks = []
     for i, chunk in enumerate(retrieved_chunks, start=1):
@@ -24,39 +58,33 @@ def build_context_block(retrieved_chunks):
     return "\n\n".join(blocks)
 
 
-def call_ollama(system_prompt, user_message):
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ],
-        "stream": False
-    }
+def call_ollama(user_message):
+    """
+    Runs the LCEL chain (prompt | llm | StrOutputParser) and handles errors from Ollama.
+    """
+    chain = get_chain()
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        response.raise_for_status()
-    except requests.exceptions.ConnectionError:
+        answer = chain.invoke({"user_message": user_message})
+    except (httpx.ConnectError, ConnectionRefusedError):
         raise RuntimeError(
             "Could not reach Ollama. Make sure it's installed and running (`ollama serve` "
             f"or the Ollama app), and that you've pulled the model with `ollama pull {MODEL_NAME}`."
         )
-    except requests.exceptions.Timeout:
+    except httpx.TimeoutException:
         raise RuntimeError(
             "Ollama took too long to respond (120s timeout). The model may be too large "
             "for this machine, or still loading — try again in a moment."
         )
-    except requests.exceptions.HTTPError as e:
+    except ResponseError as e:
         raise RuntimeError(
             f"Ollama returned an error ({e}). Confirm the model is pulled: "
             f"`ollama pull {MODEL_NAME}`."
         )
 
-    try:
-        return response.json()["message"]["content"]
-    except (ValueError, KeyError) as e:
-        raise RuntimeError(f"Unexpected response from Ollama (couldn't parse message content): {e}")
+    if not answer:
+        raise RuntimeError("Unexpected response from Ollama (empty message content).")
+    return answer
 
 
 def generate_answer(question, retrieved_chunks, chat_history=None):
@@ -83,7 +111,7 @@ Question: {question}
 
 Answer the question using only the context above."""
 
-    answer_text = call_ollama(SYSTEM_PROMPT, user_message)
+    answer_text = call_ollama(user_message)
 
     sources = [
         {"source": c["source"], "page_number": c["page_number"], "score": c["score"]}
